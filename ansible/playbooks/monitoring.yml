@@ -1,0 +1,77 @@
+---
+- name: Configurar servidor de monitoreo
+  hosts: monitoring
+  become: true
+
+  tasks:
+
+    - name: Actualizar cache de paquetes
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Instalar herramientas de monitoreo
+      ansible.builtin.apt:
+        name:
+          - curl
+          - htop
+          - openssh-client
+        state: present
+
+    - name: Crear directorio de monitoreo
+      ansible.builtin.file:
+        path: /opt/monitoring
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Crear script de estado
+      ansible.builtin.copy:
+        dest: /opt/monitoring/server_status.sh
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/bash
+
+          echo "================================"
+          echo "     ESTADO DE SERVIDORES"
+          echo "================================"
+          echo ""
+
+          check_server() {
+              NAME="$1"
+              IP="$2"
+
+              if ping -c 2 -W 2 "$IP" > /dev/null 2>&1; then
+                  echo "$NAME : ONLINE"
+              else
+                  echo "$NAME : OFFLINE"
+              fi
+          }
+
+          check_server "WEB" "WEB_IP"
+          check_server "DATABASE" "DATABASE_IP"
+          check_server "DNS" "DNS_IP"
+
+          echo ""
+          echo "================================"
+          echo "Ultima comprobacion:"
+          date
+          echo "================================"
+
+    - name: Crear directorio de logs
+      ansible.builtin.file:
+        path: /var/log/monitoring
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Comprobar servicio SSH
+      ansible.builtin.service_facts:
+
+    - name: Mostrar estado de SSH
+      ansible.builtin.debug:
+        msg: "SSH esta {{ ansible_facts.services['ssh.service'].state }}"

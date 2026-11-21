@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orion Cloud - Control Panel</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 1050px; margin: 0 auto; }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        h1 { color: #38bdf8; margin: 0; }
+        
+        /* Indicador de estado Proxmox VE */
+        .proxmox-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #1e293b;
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid #334155;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #64748b; /* Gris por defecto */
+        }
+
+        .status-dot.online {
+            background-color: #22c55e; /* Verde */
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+        }
+
+        .status-dot.offline {
+            background-color: #ef4444; /* Rojo */
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+        }
+
+        .status-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-title {
+            font-size: 0.85em;
+            font-weight: bold;
+            color: #f8fafc;
+        }
+
+        .status-version {
+            font-size: 0.75em;
+            color: #94a3b8;
+        }
+
+        .card { background-color: #1e293b; border-radius: 8px; padding: 20px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
+        .btn { background-color: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 4px; }
+        .btn:hover { opacity: 0.9; }
+        .btn-success { background-color: #16a34a; }
+        .btn-warning { background-color: #d97706; }
+        .btn-danger { background-color: #dc2626; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #94a3b8; font-weight: bold; }
+        input, select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #334155; background-color: #0f172a; color: #fff; }
+        .form-row { display: flex; gap: 15px; flex-wrap: wrap; }
+        .form-row .form-group { flex: 1; min-width: 200px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #334155; }
+        th { background-color: #0f172a; color: #94a3b8; }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; }
+        .badge-running { background-color: #166534; color: #4ade80; }
+        .badge-stopped { background-color: #334155; color: #94a3b8; }
+        .badge-recovering { background-color: #854d0e; color: #facc15; }
+        .badge-error { background-color: #991b1b; color: #fca5a5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-container">
+            <div>
+                <h1>🚀 Orion Cloud Control Plane</h1>
+                <p style="margin: 5px 0 0 0; color: #94a3b8;">Panel de Control, Despliegue en Proxmox VE y Orquestación con Ansible</p>
+            </div>
+            
+            <!-- Indicador de Estado en Vivo -->
+            <div class="proxmox-status-badge">
+                <div id="pve-dot" class="status-dot"></div>
+                <div class="status-info">
+                    <span id="pve-text" class="status-title">Comprobando Proxmox...</span>
+                    <span id="pve-version" class="status-version">Buscando nodo...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulario para Crear Servidor -->
+        <div class="card">
+            <h2>➕ Desplegar Nuevo Servidor</h2>
+            <form id="form-crear" onsubmit="crearServidor(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vmid">VMID (Ej. 102):</label>
+                        <input type="number" id="vmid" required min="101" placeholder="102">
+                    </div>
+                    <div class="form-group">
+                        <label for="nombre">Nombre del Servidor:</label>
+                        <input type="text" id="nombre" required placeholder="ej. db-postgresql">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tipo">Tipo de Recurso:</label>
+                        <select id="tipo">
+                            <option value="lxc">Contenedor LXC</option>
+                            <option value="vm">Máquina Virtual (QEMU)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="rol">Rol / Playbook de Ansible:</label>
+                        <select id="rol">
+                            <option value="web">Servidor Web (Nginx)</option>
+                            <option value="database">Base de Datos (PostgreSQL)</option>
+                            <option value="dns">Servidor DNS (BIND9)</option>
+                            <option value="firewall">Firewall (UFW)</option>
+                            <option value="monitoring">Monitoreo</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success">🚀 Crear y Configurar con Ansible</button>
+            </form>
+        </div>
+
+        <!-- Formulario para Desplegar Nodo Proxmox en VMware -->
+        <div class="card">
+            <h2>⚡ Desplegar Nuevo Nodo Proxmox en VMware ESXi</h2>
+            <form id="form-vmware" onsubmit="crearNodoVMware(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nombre-nodo">Nombre del Nodo Proxmox:</label>
+                        <input type="text" id="nombre-nodo" required placeholder="ej. pve-node-02">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-warning">⚙️ Desplegar Nodo en ESXi</button>
+            </form>
+        </div>
+
+        <!-- Tabla de Inventario de Servidores -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Inventario de Servidores</h2>
+                <button class="btn" onclick="obtenerInventario()">🔄 Actualizar Estado</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID DB</th>
+                        <th>VMID</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-inventario">
+                    <tr><td colspan="6" style="text-align: center;">Cargando inventario...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Función para consultar el estado de Proxmox
+        async function verificarEstadoProxmox() {
+            const dot = document.getElementById('pve-dot');
+            const text = document.getElementById('pve-text');
+            const version = document.getElementById('pve-version');
+
+            try {
+                const res = await fetch('/proxmox/status');
+                const data = await res.json();
+
+                if (res.ok && data.status === 'connected') {
+                    dot.className = 'status-dot online';
+                    text.innerText = `Proxmox VE Online`;
+                    version.innerText = `Host: ${data.host} | v${data.proxmox_version}`;
+                } else {
+                    throw new Error(data.detail || 'Sin conexión');
+                }
+            } catch (err) {
+                dot.className = 'status-dot offline';
+                text.innerText = 'Proxmox VE Offline';
+                version.innerText = 'Host no responde';
+            }
+        }
+
+        async function obtenerInventario() {
+            try {
+                const res = await fetch('/inventario');
+                let data = await res.json();
+                const servidores = Array.isArray(data) ? data : (data.inventario || []);
+                const tbody = document.getElementById('tabla-inventario');
+                
+                if (!servidores || servidores.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8;">No hay servidores registrados en la base de datos.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                servidores.forEach(srv => {
+                    let claseBadge = 'badge-error';
+                    if (srv.estado === 'running') claseBadge = 'badge-running';
+                    if (srv.estado === 'stopped') claseBadge = 'badge-stopped';
+                    if (srv.estado === 'recovering') claseBadge = 'badge-recovering';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${srv.id}</td>
+                            <td><b>${srv.vmid}</b></td>
+                            <td>${srv.nombre}</td>
+                            <td>${srv.tipo ? srv.tipo.toUpperCase() : 'N/A'}</td>
+                            <td><span class="badge ${claseBadge}">${srv.estado.toUpperCase()}</span></td>
+                            <td>
+                                <button class="btn btn-success" onclick="accionServidor(${srv.vmid}, 'iniciar')">▶️ Start</button>
+                                <button class="btn btn-warning" onclick="accionServidor(${srv.vmid}, 'detener')">⏹️ Stop</button>
+                                <button class="btn btn-danger" onclick="eliminarServidor(${srv.vmid})">🗑️ Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error("Error al obtener inventario:", err);
+            }
+        }
+
+        async function crearServidor(e) {
+            e.preventDefault();
+            const vmid = document.getElementById('vmid').value;
+            const nombre = document.getElementById('nombre').value;
+            const tipo = document.getElementById('tipo').value;
+            const rol = document.getElementById('rol').value;
+
+            try {
+                const res = await fetch('/crear-servidor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vmid: parseInt(vmid), nombre: nombre, tipo: tipo, rol: rol })
+                });
+
+                if (res.ok) {
+                    alert('¡Servidor registrado con éxito!');
+                    document.getElementById('form-crear').reset();
+                    obtenerInventario();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.detail || 'No se pudo crear el servidor'));
+                }
+            } catch (error) {
+                alert('Error al conectar con la API: ' + error);
+            }
+        }
+
+        async function accionServidor(vmid, accion) {
+            try {
+                const res = await fetch(`/servidor/${vmid}/${accion}`, { method: 'POST' });
+                if (res.ok) {
+                    obtenerInventario();
+                } else {
+                    alert(`Error al intentar ${accion} el servidor.`);
+                }
+            } catch (err) {
+                alert('Error de conexión: ' + err);
+            }
+        }
+
+        async function eliminarServidor(vmid) {
+            if (!confirm(`¿Seguro que deseas eliminar el servidor VMID ${vmid}?`)) return;
+            try {
+                const res = await fetch(`/servidor/${vmid}`, { method: 'DELETE' });
+                if (res.ok) {
+                    obtenerInventario();
+                } else {
+                    alert('Error al intentar eliminar el servidor.');
+                }
+            } catch (err) {
+                alert('Error de conexión: ' + err);
+            }
+        }
+
+        async function crearNodoVMware(e) {
+            e.preventDefault();
+            const nombreNodo = document.getElementById('nombre-nodo').value;
+
+            try {
+                const res = await fetch(`/crear-nodo-proxmox?nombre_nodo=${encodeURIComponent(nombreNodo)}`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert(`¡Éxito!: ${data.mensaje}`);
+                    document.getElementById('form-vmware').reset();
+                } else {
+                    alert('Error al desplegar nodo en VMware: ' + (data.detail || 'Error desconocido'));
+                }
+            } catch (err) {
+                alert('Error de conexión con la API: ' + err);
+            }
+        }
+
+        // Ejecutar revisiones iniciales y monitoreo automático
+        obtenerInventario();
+        verificarEstadoProxmox();
+        setInterval(verificarEstadoProxmox, 8000); // Revisa el estado de Proxmox cada 8 segundos
+    </script>
+</body>
+</html>

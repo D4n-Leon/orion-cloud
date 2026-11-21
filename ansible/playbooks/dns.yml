@@ -1,0 +1,32 @@
+---
+- name: Configurar servidor DNS
+  hosts: dns
+  become: true
+
+  tasks:
+
+    - name: Actualizar cache de paquetes
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Instalar BIND9
+      ansible.builtin.apt:
+        name:
+          - bind9
+          - bind9utils
+          - bind9-doc
+        state: present
+
+    - name: Iniciar y habilitar BIND9
+      ansible.builtin.service:
+        name: bind9
+        state: started
+        enabled: true
+
+    - name: Comprobar estado de BIND9
+      ansible.builtin.service_facts:
+
+    - name: Mostrar estado de BIND9
+      ansible.builtin.debug:
+        msg: "BIND9 esta {{ ansible_facts.services['named.service'].state }}"

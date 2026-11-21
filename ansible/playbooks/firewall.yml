@@ -1,0 +1,66 @@
+---
+- name: Configurar firewall del servidor
+  hosts: firewall
+  become: true
+
+  tasks:
+
+    - name: Instalar UFW
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+        update_cache: true
+
+    - name: Permitir SSH
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Permitir HTTP
+      community.general.ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: Permitir HTTPS
+      community.general.ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+
+    - name: Permitir DNS TCP
+      community.general.ufw:
+        rule: allow
+        port: "53"
+        proto: tcp
+
+    - name: Permitir DNS UDP
+      community.general.ufw:
+        rule: allow
+        port: "53"
+        proto: udp
+
+    - name: Configurar politica de entrada
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Configurar politica de salida
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Activar UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Mostrar estado del firewall
+      ansible.builtin.command:
+        cmd: ufw status verbose
+      register: firewall_status
+      changed_when: false
+
+    - name: Mostrar resultado del firewall
+      ansible.builtin.debug:
+        var: firewall_status.stdout_lines

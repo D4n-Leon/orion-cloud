@@ -1,0 +1,40 @@
+---
+- name: Configurar servidor de base de datos
+  hosts: database
+  become: true
+
+  vars:
+    database_name: proyecto_db
+    database_user: app_user
+
+  tasks:
+
+    - name: Actualizar cache de paquetes
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Instalar PostgreSQL
+      ansible.builtin.apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+        state: present
+
+    - name: Iniciar y habilitar PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Crear base de datos
+      become_user: postgres
+      community.postgresql.postgresql_db:
+        name: "{{ database_name }}"
+        state: present
+
+    - name: Crear usuario de aplicacion
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: "{{ database_user }}"
+        state: present

@@ -1,0 +1,47 @@
+---
+- name: Configurar servidor web
+  hosts: web
+  become: true
+
+  tasks:
+
+    - name: Actualizar cache de paquetes
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Instalar Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: Crear pagina de prueba
+      ansible.builtin.copy:
+        dest: /var/www/html/index.html
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Proyecto Integrador</title>
+          </head>
+          <body>
+              <h1>Servidor Web Funcionando</h1>
+              <p>Servidor configurado automaticamente con Ansible.</p>
+          </body>
+          </html>
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Iniciar y habilitar Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Comprobar estado de Nginx
+      ansible.builtin.service_facts:
+
+    - name: Mostrar estado de Nginx
+      ansible.builtin.debug:
+        msg: "Nginx esta {{ ansible_facts.services['nginx.service'].state }}"
